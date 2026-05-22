@@ -1,10 +1,5 @@
 # X/Twitter Mass Unfollow Non-Followers 2025 – Ultra Safe Script
 
-[![Stars](https://img.shields.io/github/stars/Shayanthn/Twitter-X-Mass-Unfollow?style=social)](https://github.com/Shayanthn/Twitter-X-Mass-Unfollow/stargazers)
-[![Forks](https://img.shields.io/github/forks/Shayanthn/Twitter-X-Mass-Unfollow?style=social)](https://github.com/Shayanthn/Twitter-X-Mass-Unfollow/network/members)
-[![License](https://img.shields.io/github/license/Shayanthn/Twitter-X-Mass-Unfollow)](LICENSE)
-[![Twitter](https://img.shields.io/twitter/follow/shayanthn?style=social)](https://twitter.com/tah3rkhani)
-
 **The most accurate & safest console script to mass unfollow non-followers on X.com (Twitter)**
 No extension · No API · Zero bans · Actively maintained
 
