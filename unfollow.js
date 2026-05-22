@@ -2,17 +2,25 @@
   X/Twitter Ultra-Safe Mass Unfollow Script with Floating UI Panel (Dec 2025)
   Author: Shayan Taherkhani
   Website: https://shayantaherkhani.ir
+  Modified: Added isPrivate() to skip locked/private accounts
 */
+
+// Entire script is wrapped in an IIFE so that nothing (MAX_UNFOLLOWS, etc.)
+// is declared at the console's top-level lexical scope. Without this, pasting
+// the script a second time throws "redeclaration of let MAX_UNFOLLOWS" at
+// PARSE time — before the runtime guard below can ever run. Wrapped this way,
+// re-running just creates a fresh scope and the guard handles double-runs.
+(function () {
 
 if (window.unfollowScriptRunning) {
   console.warn("⚠️ Script already running!");
-  throw new Error("Script already active");
+  return;
 }
 window.unfollowScriptRunning = true;
 
 // === SETTINGS ===
 let MAX_UNFOLLOWS = 190;
-let MIN_DELAY = 20000;
+let MIN_DELAY = 3000;
 let MAX_DELAY = 35000;
 let isPaused = false;
 let shouldStop = false;
@@ -143,6 +151,51 @@ function createUI() {
         outline: none;
         border-color: #1DA1F2;
       }
+      #unfollow-panel .toggle-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      #unfollow-panel .toggle-label {
+        font-size: 12px;
+        color: rgba(255,255,255,0.8);
+      }
+      #unfollow-panel .toggle-switch {
+        position: relative;
+        width: 40px;
+        height: 22px;
+      }
+      #unfollow-panel .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      #unfollow-panel .toggle-slider {
+        position: absolute;
+        inset: 0;
+        background: rgba(255,255,255,0.2);
+        border-radius: 22px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      #unfollow-panel .toggle-slider:before {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        left: 3px;
+        top: 3px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform 0.2s;
+      }
+      #unfollow-panel .toggle-switch input:checked + .toggle-slider {
+        background: #17bf63;
+      }
+      #unfollow-panel .toggle-switch input:checked + .toggle-slider:before {
+        transform: translateX(18px);
+      }
       #unfollow-panel .buttons {
         display: flex;
         gap: 10px;
@@ -220,11 +273,18 @@ function createUI() {
       </div>
       <div class="setting-row">
         <span class="setting-label">Min Delay (sec):</span>
-        <input type="number" class="setting-input" id="setting-min-delay" value="${MIN_DELAY/1000}" min="5" max="120">
+        <input type="number" class="setting-input" id="setting-min-delay" value="${MIN_DELAY/1000}" min="0" max="120">
       </div>
       <div class="setting-row">
         <span class="setting-label">Max Delay (sec):</span>
         <input type="number" class="setting-input" id="setting-max-delay" value="${MAX_DELAY/1000}" min="10" max="180">
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Skip private accounts:</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="setting-skip-private" checked>
+          <span class="toggle-slider"></span>
+        </label>
       </div>
     </div>
     <div class="buttons">
@@ -270,7 +330,7 @@ function createUI() {
     updateUI();
   };
   document.getElementById('setting-min-delay').onchange = (e) => {
-    MIN_DELAY = (parseInt(e.target.value) || 20) * 1000;
+    MIN_DELAY = (parseInt(e.target.value) || 3) * 1000;
   };
   document.getElementById('setting-max-delay').onchange = (e) => {
     MAX_DELAY = (parseInt(e.target.value) || 35) * 1000;
@@ -311,8 +371,76 @@ function txt(el) {
 }
 
 function isMutual(cell) {
-  return txt(cell).includes("follows you") || txt(cell).includes("شما را دنبال می‌کند");
+  const NEEDLES = ["follows you", "شما را دنبال می‌کند"];
+
+  // 1. Twitter's dedicated badge testid (most reliable when present).
+  if (cell.querySelector('[data-testid="userFollowIndicator"]')) return true;
+
+  // 2. The badge may be an aria-label with NO text node, so neither innerText
+  //    nor textContent would see it. Scan every aria-label in the cell.
+  for (const el of cell.querySelectorAll('[aria-label]')) {
+    const label = (el.getAttribute('aria-label') || "").toLowerCase();
+    if (NEEDLES.some(n => label.includes(n))) return true;
+  }
+
+  // 3. Visible + hidden text. innerText skips visually-hidden a11y spans, so we
+  //    also read textContent and combine both sources.
+  const inner   = (cell?.innerText   || "").toLowerCase();
+  const content = (cell?.textContent || "").toLowerCase();
+  const combined = inner + " " + content;
+  return NEEDLES.some(n => combined.includes(n));
 }
+
+// === NEW: Private/locked account detection ===
+function isPrivate(cell) {
+  // 1. Check SVG aria-labels for "protected" (Twitter's own accessibility label for locked accounts)
+  const svgs = cell.querySelectorAll('svg');
+  for (const svg of svgs) {
+    const label = (svg.getAttribute('aria-label') || '').toLowerCase();
+    if (label.includes('protected') || label.includes('private') || label.includes('locked')) {
+      return true;
+    }
+  }
+
+  // 2. Check any element with an aria-label indicating a protected account
+  const labeled = cell.querySelectorAll('[aria-label]');
+  for (const el of labeled) {
+    const label = (el.getAttribute('aria-label') || '').toLowerCase();
+    if (label.includes('protected') || label.includes('private') || label.includes('locked')) {
+      return true;
+    }
+  }
+
+  // 3. Check for visually-hidden screen-reader text (Twitter uses <span> inside SVG titles)
+  const svgTitles = cell.querySelectorAll('svg title');
+  for (const title of svgTitles) {
+    const t = txt(title);
+    if (t.includes('protected') || t.includes('private') || t.includes('locked')) {
+      return true;
+    }
+  }
+
+  // 4. Fallback: look for the lock SVG path signature Twitter uses.
+  // The lock icon path typically contains a rounded-top rectangle (body) + arc (shackle).
+  // We match by checking for a path with a "d" attribute containing the typical lock curve.
+  const paths = cell.querySelectorAll('svg path[d]');
+  for (const path of paths) {
+    const d = path.getAttribute('d') || '';
+    // Twitter's lock SVG path contains a characteristic arc segment for the shackle
+    if (d.includes('M12 4a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3') ||
+        d.includes('M16.5 10H15V7a3 3') ||
+        (d.includes('M') && d.includes('a') && d.includes('H') && d.length > 30 && d.length < 120 &&
+         path.closest('svg')?.getAttribute('viewBox') === '0 0 24 24')) {
+      // Additional heuristic: lock icons are small (near username area) — only flag if
+      // the SVG is inside a heading or name element, not a button
+      const parentBtn = path.closest('[role="button"], button');
+      if (!parentBtn) return true;
+    }
+  }
+
+  return false;
+}
+// ============================================
 
 function getUsername(cell) {
   const link = cell.querySelector('a[href^="/"][role="link"], a[href^="/"]:not([href*="status"]):not([href*="intent"])');
@@ -323,9 +451,21 @@ function getUsername(cell) {
 }
 
 function findUnfollowButton(cell) {
+  // Most reliable: Twitter gives the unfollow button a data-testid ending in
+  // "-unfollow" (e.g. "1234567890-unfollow"). Target it directly.
+  const byTestId = cell.querySelector('[data-testid$="-unfollow"]');
+  if (byTestId) return byTestId;
+
+  // Fallback by text — but ONLY on elements whose own label is short.
+  // The entire UserCell is itself a div[role="button"] that navigates to the
+  // profile, and its text contains "Following" because the real button is
+  // nested inside it. Matching that outer div opens the profile and breaks
+  // the script. The length bound ensures we match the actual button (label
+  // is just "Following"/"Unfollow"), never the whole cell container.
   const btns = cell.querySelectorAll('div[role="button"], button');
   return Array.from(btns).find(b => {
-    const t = txt(b);
+    const t = (b.innerText || b.textContent || "").trim().toLowerCase();
+    if (t.length > 25) return false;
     return t.includes("following") || t.includes("unfollow") || t.includes("دنبال می‌کنید");
   });
 }
@@ -368,47 +508,97 @@ function logAction(username, action, reason = "") {
   createUI();
   console.log("%c🚀 Started Safe Unfollow with Floating UI Panel (Dec 2025)", "color:#1DA1F2;font-weight:bold;");
 
-  const cells = document.querySelectorAll('[data-testid="UserCell"], [data-testid="cellInnerDiv"]');
   let count = 0, skipped = 0;
-  const total = cells.length;
 
-  updateUI(count, skipped, '', total);
+  // Twitter's following list is VIRTUALIZED: only ~20-40 cells exist in the
+  // DOM at any moment, and off-screen cells are removed/recycled as you
+  // scroll. So we cannot capture the cell list once — it goes stale and we'd
+  // only ever see the first screenful. Instead we re-query the DOM every
+  // iteration, track which accounts we've already handled by username, and
+  // scroll to load more when the visible batch is exhausted.
+  const processed = new Set();        // usernames already acted on
+  let emptyScrolls = 0;               // consecutive scrolls revealing nothing new
+  const MAX_EMPTY_SCROLLS = 8;        // give up after this many (end of list)
 
-  for (const cell of cells) {
-    if (shouldStop) break;
+  updateUI(count, skipped, '', MAX_UNFOLLOWS);
+
+  while (count < MAX_UNFOLLOWS && !shouldStop) {
     await waitWhilePaused();
-    if (count >= MAX_UNFOLLOWS) break;
+    if (shouldStop) break;
 
-    if (!cell.querySelector('a[href^="/"]')) {
-      logAction("unknown", "skipped", "No profile link (likely ad)");
-      skipped++;
-      updateUI(count, skipped, '', total);
+    // Re-query fresh each pass so we always work with live, attached nodes.
+    const cells = Array.from(document.querySelectorAll('[data-testid="UserCell"], [data-testid="cellInnerDiv"]'));
+
+    // Pick the first un-processed cell that represents a real account.
+    let target = null, username = null;
+    for (const cell of cells) {
+      if (!cell.querySelector('a[href^="/"]')) continue;   // ad / non-user row
+      const u = getUsername(cell);
+      if (u === "unknown" || processed.has(u)) continue;
+      target = cell; username = u; break;
+    }
+
+    // Nothing new in the current viewport → scroll down to load more.
+    if (!target) {
+      const last = cells[cells.length - 1];
+      if (last) last.scrollIntoView({ block: "end", behavior: "instant" });
+      window.scrollBy(0, 800);
+      await sleep(1200);   // let Twitter render the next batch
+
+      emptyScrolls++;
+      if (emptyScrolls >= MAX_EMPTY_SCROLLS) {
+        console.log("%c🏁 No more accounts to load — reached end of list.", "color:#f7931a;font-weight:bold;");
+        break;
+      }
       continue;
     }
-    if (isMutual(cell)) {
-      const username = getUsername(cell);
+    emptyScrolls = 0;   // found a fresh cell; reset the end-of-list counter
+
+    // Mark up front so we never revisit this account, regardless of outcome.
+    processed.add(username);
+
+    if (isMutual(target)) {
       logAction(username, "skipped", "Mutual follow");
       skipped++;
-      updateUI(count, skipped, username, total);
+      updateUI(count, skipped, username, MAX_UNFOLLOWS);
       continue;
     }
 
-    const btn = findUnfollowButton(cell);
+    const skipPrivate = document.getElementById('setting-skip-private')?.checked ?? true;
+    if (skipPrivate && isPrivate(target)) {
+      logAction(username, "skipped", "Private/locked account");
+      skipped++;
+      updateUI(count, skipped, username, MAX_UNFOLLOWS);
+      continue;
+    }
+
+    // Bring the cell into view BEFORE locating the button, then find the
+    // button on the live element — scrolling can recycle/re-render nodes,
+    // so the button must be looked up on the current, on-screen cell.
+    target.scrollIntoView({ block: "center", behavior: "instant" });
+    await sleep(400);
+
+    const btn = findUnfollowButton(target);
     if (!btn) {
-      const username = getUsername(cell);
       logAction(username, "skipped", "No unfollow/following button");
       skipped++;
-      updateUI(count, skipped, username, total);
+      updateUI(count, skipped, username, MAX_UNFOLLOWS);
       continue;
     }
 
-    const username = getUsername(cell);
-    updateUI(count, skipped, username, total);
+    updateUI(count, skipped, username, MAX_UNFOLLOWS);
 
     try {
-      btn.scrollIntoView({ block: "center" });
-      await sleep(500);
+      // Block any <a> tags in the cell from navigating during the click, in
+      // case the click bubbles to an ancestor profile link.
+      const anchors = Array.from(target.querySelectorAll('a'));
+      const blockNav = (e) => e.preventDefault();
+      anchors.forEach(a => a.addEventListener('click', blockNav, true));
+
       btn.click();
+
+      await sleep(100);
+      anchors.forEach(a => a.removeEventListener('click', blockNav, true));
 
       const confirmBtn = await waitConfirm();
       if (confirmBtn) {
@@ -419,11 +609,11 @@ function logAction(username, action, reason = "") {
         logAction(username, "skipped", "No confirmation dialog - assuming unfollowed");
         count++;
       }
-      updateUI(count, skipped, username, total);
+      updateUI(count, skipped, username, MAX_UNFOLLOWS);
     } catch (err) {
       logAction(username, "error", `Exception: ${err.message}`);
       skipped++;
-      updateUI(count, skipped, username, total);
+      updateUI(count, skipped, username, MAX_UNFOLLOWS);
     }
 
     if (shouldStop) break;
@@ -449,4 +639,6 @@ function logAction(username, action, reason = "") {
   console.table(logEntries);
 
   window.unfollowScriptRunning = false;
+})();
+
 })();
