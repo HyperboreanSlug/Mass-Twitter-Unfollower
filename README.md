@@ -3,7 +3,7 @@
 **The most accurate & safest console script to mass unfollow non-followers on X.com (Twitter)**
 No extension · No API · Zero bans · Actively maintained
 
-> This is an enhanced version of the original script created by **Shayan Taherkhani**. The core script, design, and approach are his work — see [Credits](#credits). This release adds private-account skipping, more reliable mutual detection, virtualized-list handling, and several bug fixes (see [What's New](#whats-new)).
+> This is an enhanced version of the original script created by **Shayan Taherkhani**. The core script, design, and approach are his work — see [Credits](#credits). This release adds private-account skipping, more reliable mutual detection, virtualized-list handling, and several bug fixes (see [What's New](#whats-new)). It also ships a [Continuous Mode](#continuous-mode-unfollow-continuousjs) variant that runs in repeating batches with cooldowns.
 
 ## Why this script is the best
 
@@ -40,7 +40,17 @@ This version builds on the original with the following improvements:
 
 The script auto-scrolls to load more profiles as it runs, so manual scrolling is no longer required — though pre-loading a few hundred profiles first can help on very large lists.
 
-> Script stops automatically after 190 unfollows (or when it reaches the end of your list). Want more? Just run it again.
+> Script stops automatically after 190 unfollows (or when it reaches the end of your list). Want more? Just run it again — or use Continuous Mode below.
+
+## Continuous Mode (`unfollow-continuous.js`)
+
+A long-running variant of the unfollow script. Instead of stopping at 190, it works in **batches of 190 with a randomized 15–20 minute cooldown between each batch**, so it can clear large following lists across a single session while keeping a rate-limit-friendly pace.
+
+It includes everything from the standard script — reliable mutual detection, private-account skipping, virtualized-list auto-scroll, and re-run safety, plus a live cooldown countdown in the panel and adjustable pause-length settings. Pause and Stop stay fully responsive during cooldowns. It ends only when you stop it or it reaches the end of your list.
+
+Use it the same way: open your following page, paste the script into the console, and press Enter.
+
+> **Heads-up:** continuous high-volume unfollowing is exactly the pattern X's automation detection watches for. The cooldowns lower the risk versus a flat burst but don't eliminate it. Keep batch sizes modest and stop for the day if you see a "you're doing that too much" warning.
 
 ## Screenshot
 
@@ -48,10 +58,16 @@ The script auto-scrolls to load more profiles as it runs, so manual scrolling is
 
 ## Credits
 
-Original author: **Shayan Taherkhani** https://github.com/Shayanthn/Twitter-X-Mass-Unfollow
+Original author: **Shayan Taherkhani**
+Website: https://shayantaherkhani.ir
+X/Twitter: [@tah3rkhani](https://twitter.com/tah3rkhani)
 
 All credit for the original script and concept goes to Shayan. This enhanced version preserves his work and attribution.
 
 ## Legal Note
 
 This script automates the public web interface and is provided as-is. Automating actions may be against X's Terms of Service — use at your own risk. X.com may change their UI at any time.
+
+</div>
+
+⭐ **If this script saved you hours — please give it a star!** ⭐
