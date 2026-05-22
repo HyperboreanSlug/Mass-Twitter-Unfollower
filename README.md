@@ -48,9 +48,7 @@ The script auto-scrolls to load more profiles as it runs, so manual scrolling is
 
 ## Credits
 
-Original author: **Shayan Taherkhani**
-Website: https://shayantaherkhani.ir
-X/Twitter: [@tah3rkhani](https://twitter.com/tah3rkhani)
+Original author: **Shayan Taherkhani** https://github.com/Shayanthn/Twitter-X-Mass-Unfollow
 
 All credit for the original script and concept goes to Shayan. This enhanced version preserves his work and attribution.
 
